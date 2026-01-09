@@ -4,23 +4,23 @@
 <meta charset="UTF-8">
 <title>CYBER WINTER STURM ALARM SCHWEIZ</title>
 <style>
-body{font-family:Arial,sans-serif;background:#eef2f6;padding:20px;}
-h1{text-align:center;}
-button{padding:14px;font-size:1.1em;border:none;border-radius:12px;cursor:pointer;}
-#startBtn{width:100%;background:#2980b9;color:white;margin-bottom:20px;}
-input{padding:8px;width:220px;}
-.status{margin-top:20px;padding:20px;border-radius:14px;text-align:center;color:white;font-size:1.2em;}
+body{font-family:Arial,sans-serif;background:#eef2f6;padding:20px;text-align:center;}
+h1{text-align:center;margin-bottom:5px;}
+#ampel{margin:10px auto;padding:20px;width:250px;border-radius:12px;color:white;font-size:1.4em;font-weight:bold;}
 .green{background:#2ecc71;}
 .yellow{background:#f1c40f;color:black;}
 .orange{background:#e67e22;}
 .red{background:#e74c3c;}
+button{padding:14px;font-size:1.1em;border:none;border-radius:12px;cursor:pointer;margin:5px;}
+input{padding:8px;width:220px;}
 .email-item{margin:6px 0;}
-#countdown{margin-top:15px;font-weight:bold;text-align:center;}
+#countdown{margin-top:15px;font-weight:bold;}
 </style>
 </head>
 <body>
 
 <h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
+<div id="ampel" class="green">🟢 Status: Keine Gefahr</div>
 
 <button id="startBtn">🔔 Alarm aktivieren</button>
 
@@ -29,16 +29,15 @@ input{padding:8px;width:220px;}
 <button id="addEmailBtn">➕</button>
 <div id="emailList"></div>
 
-<div id="status" class="status green">Noch keine Daten</div>
+<div id="status"></div>
 <div id="countdown"></div>
 
 <script>
 /* ================== KONFIG ================== */
 const EMAIL_API="https://script.google.com/macros/s/AKfycbxETt5pEIsHFU19u2IL1ouZ_crteiaepipClCflXxjDhDUEvYH_-BaJFBAJQCntdZy_/exec";
 
-let activated=false,lastLevel=null,preAlarmSent=false,dangerTime=null;
+let activated=false,lastLevel=null,preAlarmSent=false,safeEmailSent=false;
 let emails=JSON.parse(localStorage.getItem("emails")||"[]");
-let safeEmailSent=false;
 const alarm=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 alarm.loop=true;
 
@@ -98,7 +97,8 @@ function startCountdown(target){
       preAlarmSent=true;
       alarm.play().catch(()=>{});
       navigator.vibrate?.([1000,500,1000,500,1000]);
-      new Notification("⚠️ Wintersturm-Warnung",{body:"EXTREME GEFAHR in weniger als 2 Stunden!"});
+      if(Notification.permission==="granted")
+        new Notification("⚠️ Wintersturm-Warnung",{body:"EXTREME GEFAHR in weniger als 2 Stunden!"});
       sendEmailAll("⚠️ EXTREME GEFAHR in weniger als 2 Stunden!");
     }
   },1000);
@@ -113,43 +113,53 @@ function sendEmailAll(text){
 
 /* ================== WETTER CHECK ================== */
 async function checkWeather(lat,lon){
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,snowfall,time&timezone=Europe/Zurich`;
-  const res=await fetch(url);
-  const data=await res.json();
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,snowfall,time&timezone=Europe/Zurich`;
+    const res=await fetch(url);
+    if(!res.ok) throw new Error("Fehler beim Abrufen");
+    const data=await res.json();
 
-  let minTemp=999,snowSum=0,danger=null;
-  for(let i=0;i<28;i++){
-    const t=data.hourly.temperature_2m[i];
-    const s=data.hourly.snowfall[i];
-    minTemp=Math.min(minTemp,t);
-    snowSum+=s;
-    if(!danger && getLevel(t,s)==="red") danger=new Date(data.hourly.time[i]).getTime();
-  }
-
-  const level=getLevel(minTemp,snowSum);
-  updateUI(level,minTemp,snowSum);
-
-  if(danger) startCountdown(danger);
-  else{
-    document.getElementById("countdown").innerHTML="✅ Keine Gefahr in den nächsten 28 Stunden";
-    alarm.pause();
-    if(!safeEmailSent && emails.length>0){
-      safeEmailSent=true;
-      sendEmailAll("✅ Keine Gefahr in den nächsten 28 Stunden");
+    let minTemp=999,snowSum=0,danger=null;
+    for(let i=0;i<28;i++){
+      const t=data.hourly.temperature_2m[i];
+      const s=data.hourly.snowfall[i];
+      minTemp=Math.min(minTemp,t);
+      snowSum+=s;
+      if(!danger && getLevel(t,s)==="red") danger=new Date(data.hourly.time[i]).getTime();
     }
+
+    const level=getLevel(minTemp,snowSum);
+    updateUI(level,minTemp,snowSum);
+
+    if(danger) startCountdown(danger);
+    else{
+      document.getElementById("countdown").innerHTML="✅ Keine Gefahr in den nächsten 28 Stunden";
+      alarm.pause();
+      if(!safeEmailSent && emails.length>0){
+        safeEmailSent=true;
+        sendEmailAll("✅ Keine Gefahr in den nächsten 28 Stunden");
+      }
+    }
+  }catch(e){
+    document.getElementById("status").innerHTML="❌ Fehler beim Laden der Wetterdaten";
+    console.error(e);
   }
 }
 
 /* ================== UI UPDATE ================== */
 function updateUI(level,temp,snow){
   const status=document.getElementById("status");
-  status.className="status "+level;
+  const ampel=document.getElementById("ampel");
   const txt={green:"🟢 Keine Gefahr",yellow:"🟡 Erhöhte Gefahr",orange:"🟠 Mittlere Gefahr",red:"🔴 EXTREME GEFAHR – NICHT RAUSGEHEN"};
-  status.innerHTML=`${txt[level]}<br>Tiefsttemperatur: ${temp.toFixed(1)}°C<br>Schnee: ${snow.toFixed(1)} cm`;
+  
+  status.innerHTML=`Tiefsttemperatur: ${temp.toFixed(1)}°C<br>Schnee: ${snow.toFixed(1)} cm`;
+  ampel.className=""; 
+  ampel.classList.add(level);
+  ampel.innerText=`${txt[level]}`;
 
   if(level!==lastLevel){
     lastLevel=level;
-    safeEmailSent=false; // reset safe email wenn Status ändert
+    safeEmailSent=false;
     if(Notification.permission==="granted") new Notification("Winterstatus Schweiz",{body:txt[level]});
     if(level==="red"){
       alarm.play().catch(()=>{});
