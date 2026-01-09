@@ -51,7 +51,10 @@ function renderEmails(){
     div.textContent=mail+" ";
     const btn=document.createElement("button");
     btn.textContent="🗑️";
-    btn.addEventListener("click",()=>removeEmail(i));
+    btn.addEventListener("click",()=>{
+      removeEmail(i);
+      alert(`E-Mail ${mail} gelöscht!`);
+    });
     div.appendChild(btn);
     list.appendChild(div);
   });
@@ -63,7 +66,9 @@ function addEmail(){
     localStorage.setItem("emails",JSON.stringify(emails));
     document.getElementById("emailInput").value="";
     renderEmails();
-  }
+    alert(`E-Mail ${val} hinzugefügt!`);
+  } else if(!val) alert("Bitte eine E-Mail eingeben!");
+  else alert("E-Mail ist schon gespeichert!");
 }
 function removeEmail(i){
   emails.splice(i,1);
@@ -79,7 +84,7 @@ document.getElementById("testEmailBtn").addEventListener("click", ()=>{
   emails.forEach(e=>{
     fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&subject=${encodeURIComponent("Cyber Winter Sturm Alarm Test")}&body=${encodeURIComponent("Dies ist eine Test-E-Mail vom Cyber Winter Sturm Alarm. Status: Keine Gefahr")}`)
     .then(res=>res.text())
-    .then(console.log)
+    .then(()=>console.log(`Test-Mail an ${e} gesendet`))
     .catch(console.error);
   });
   alert("Test-E-Mail sollte gesendet worden sein!");
