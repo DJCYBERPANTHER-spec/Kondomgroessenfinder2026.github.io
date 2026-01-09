@@ -2,244 +2,144 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>CYBER WINTER STURM ALARM SCHWEIZ</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schweizer Auto-Theorie Profi-App</title>
 <style>
-body{
-  margin:0;
-  font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background:#f4f6f8;
-  color:#333;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  min-height:100vh;
-}
-h1{
-  margin:20px 0 10px 0;
-  font-size:2rem;
-  text-align:center;
-}
-#ampel{
-  margin:10px auto;
-  padding:25px 20px;
-  width:90%;
-  max-width:400px;
-  border-radius:15px;
-  color:white;
-  font-size:1.6rem;
-  font-weight:bold;
-  text-align:center;
-  box-shadow:0 4px 15px rgba(0,0,0,0.2);
-}
-.green{background:#2ecc71;}
-.yellow{background:#f1c40f;color:black;}
-.orange{background:#e67e22;}
-.red{background:#e74c3c;}
-button{
-  padding:12px 18px;
-  font-size:1.1rem;
-  border:none;
-  border-radius:12px;
-  cursor:pointer;
-  margin:5px;
-  box-shadow:0 3px 6px rgba(0,0,0,0.15);
-  transition:0.2s;
-}
-button:hover{opacity:0.9;transform:scale(1.02);}
-#startBtn{
-  padding:18px;
-  font-size:1.3rem;
-  width:90%;
-  max-width:350px;
-  background:#3498db;
-  color:white;
-}
-#emailSection{
-  margin-top:20px;
-  width:90%;
-  max-width:400px;
-  background:white;
-  border-radius:12px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.1);
-  padding:15px;
-}
-#emailInput{padding:10px;width:70%;border-radius:8px;border:1px solid #ccc;font-size:1rem;}
-.email-item{display:flex;justify-content:space-between;align-items:center;margin:5px 0;padding:5px 10px;background:#f1f1f1;border-radius:8px;}
-#countdown,#status{margin-top:15px;font-size:1.1rem;font-weight:500;text-align:center;}
+body { font-family: Arial, sans-serif; background:#f9f9f9; margin:0; padding:0; }
+.container { max-width:900px; margin:20px auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 15px rgba(0,0,0,0.1); }
+h1 { text-align:center; color:#333; }
+.question { margin-bottom:20px; padding:10px; border-radius:5px; background:#f1f1f1;}
+.options label { display:block; margin:5px 0; cursor:pointer; }
+button { padding:10px 20px; font-size:16px; margin-top:20px; cursor:pointer; border:none; border-radius:5px; background:#007bff; color:#fff; }
+button:hover { background:#0056b3; }
+.result { font-size:20px; margin-top:20px; text-align:center; }
+img { max-width:100%; margin:10px 0; }
+.correct { color:green; font-weight:bold; }
+.wrong { color:red; font-weight:bold; }
+#timer { font-size:18px; text-align:right; margin-bottom:10px; color:#333; }
+.progress { font-size:16px; margin-bottom:10px; }
 </style>
 </head>
 <body>
-
-<h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
-<div id="ampel" class="green">Status: Keine Gefahr</div>
-<button id="startBtn">App starten</button>
-
-<div id="emailSection">
-  <h3>E-Mail Benachrichtigungen</h3>
-  <div style="display:flex; justify-content:center; margin-bottom:10px;">
-    <input id="emailInput" placeholder="E-Mail eingeben">
-    <button id="addEmailBtn">➕</button>
-  </div>
-  <div id="emailList"></div>
-  <button id="testEmailBtn">Test-E-Mail senden</button>
+<div class="container">
+<h1>Schweizer Auto-Theorie Profi-App</h1>
+<div id="timer">45:00</div>
+<div class="progress" id="progress">Frage 1 von 30</div>
+<div id="quiz"></div>
+<button id="next">Nächste Frage</button>
+<div class="result" id="result"></div>
+<button id="export" style="display:none;">Ergebnis exportieren</button>
 </div>
 
-<div id="status"></div>
-<div id="countdown"></div>
-
 <script>
-const EMAIL_API="https://script.google.com/macros/s/AKfycbxETt5pEIsHFU19u2IL1ouZ_crteiaepipClCflXxjDhDUEvYH_-BaJFBAJQCntdZy_/exec";
+const totalTime = 45*60; // 45 Minuten in Sekunden
+let timeLeft = totalTime;
+const timerEl = document.getElementById('timer');
+let timerInterval = setInterval(()=>{
+    let min = Math.floor(timeLeft/60);
+    let sec = timeLeft%60;
+    timerEl.textContent = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+    if(timeLeft <=0){
+        clearInterval(timerInterval);
+        alert('Zeit ist abgelaufen! Die Prüfung wird beendet.');
+        showResult();
+    }
+    timeLeft--;
+},1000);
 
-let emails=JSON.parse(localStorage.getItem("emails")||"[]");
-let lastLevel=null;
-let greenSent=false;
-let latitude=null, longitude=null;
+let currentIndex = 0;
+let userAnswers = [];
+const quizData = [
+  {question:"1. Achtung Bahnübergang ohne Schranken", img:"https://upload.wikimedia.org/wikipedia/commons/7/7f/CH_Warnschild_Bahnübergang.svg", options:{a:"Achtung Bahnübergang ohne Schranken", b:"Bahnübergang mit Schranken", c:"Nur Strassenbahnverkehr", d:"Verbot für Schienenfahrzeuge"}, answer:"a"},
+  {question:"2. Blaues Rondell-Symbol", img:"https://upload.wikimedia.org/wikipedia/commons/e/e5/CH_Kreisel.svg", options:{a:"Vortritt im Kreisverkehr", b:"Verbot der Einfahrt", c:"Richtungsweisung im Kreisverkehr", d:"Ende Zone 30"}, answer:"c"},
+  {question:"3. Gelb blinkende Ampel", img:"https://upload.wikimedia.org/wikipedia/commons/4/42/CH_Ampel_gelb_blinkend.svg", options:{a:"Langsam weiterfahren und achten", b:"Gleich schnell weiterfahren", c:"Anhalten, Vortritt gewähren", d:"Sofort losfahren"}, answer:"a"},
+  {question:"4. Blauer Kreis{question:"1. Achtung Bahnübergang ohne Schranken", img:"", options:{a:"Achtung Bahnübergang ohne Schranken", b:"Bahnübergang mit Schranken", c:"Nur Strassenbahnverkehr", d:"Verbot für Schienenfahrzeuge"}, answer:"a"},
+  {question:"2. Blaues Rondell-Symbol", img:"", options:{a:"Vortritt im Kreisverkehr", b:"Verbot der Einfahrt", c:"Richtungsweisung im Kreisverkehr", d:"Ende Zone 30"}, answer:"c"},
+  {question:"3. Gelb blinkende Ampel", img:"", options:{a:"Langsam weiterfahren und achten", b:"Gleich schnell weiterfahren", c:"Anhalten, Vortritt gewähren", d:"Sofort losfahren"}, answer:"a"},
+  {question:"4. Blauer Kreis mit Pfeil + Fahrrad", img:"", options:{a:"Fahrräder müssen rechts fahren", b:"Rechtsabbiegen für alle vorgeschrieben", c:"Nur Fahrradverkehr erlaubt", d:"Radfahrer auf der Strasse"}, answer:"a"},
+  {question:"5. Schulbus hält, Kinder steigen aus", img:"", options:{a:"Ja, wenn kein Gegenverkehr", b:"Nein, anhalten und warten", c:"Nur wenn Bus blinkt", d:"Nur rechts vorbeifahren"}, answer:"b"},
+  {question:"6. Fussgängerstreifen", img:"", options:{a:"Anhalten und Vortritt gewähren", b:"Langsam durchfahren", c:"Nur bremsen wenn er schon auf Zebrastreifen", d:"Hupen, damit er wartet"}, answer:"a"},
+  {question:"7. Nebel Sicht <50m", img:"", options:{a:"Nebelscheinwerfer + Abblendlicht einschalten", b:"Fernlicht einschalten", c:"Nur Standlicht", d:"Weiterfahren wie gewohnt"}, answer:"a"},
+  {question:"8. Stopp-Schild + Rechtsvortritt", img:"", options:{a:"Anhalten, Vortritt gewähren", b:"Weiterfahren wenn frei", c:"Nur verlangsamen", d:"Nur Rechtsabbieger warten lassen"}, answer:"a"},
+  {question:"9. Autobahn, falsche Einordnung", img:"", options:{a:"Rückwärts fahren", b:"Weiter bis nächste Ausfahrt", c:"Links überholen", d:"Sofort rechts stoppen"}, answer:"b"},
+  {question:"10. Abbiegen – wer beachten?", img:"", options:{a:"Velofahrer und Fussgänger", b:"Nur Autos", c:"Nur Motorradfahrer", d:"Nur Trams"}, answer:"a"},
+  {question:"11. Kreuzung unbeschildert, wer fährt zuerst?", img:"", options:{a:"Fahrzeug von rechts", b:"Fahrzeug mit grösserer Masse", c:"Fahrzeug von links", d:"Fahrzeug mit grösserem Motor"}, answer:"a"},
+  {question:"12. Linksabbieger, Gegenverkehr auch links", img:"", options:{a:"Linkskreuzen", b:"Rechtskreuzen", c:"Einer wartet", d:"Hupen und fahren"}, answer:"c"},
+  {question:"13. Rettungswagen mit Blaulicht", img:"", options:{a:"Rechts ranfahren und halten", b:"Weiterfahren", c:"Links überholen", d:"Sofort anhalten"}, answer:"a"},
+  {question:"14. Unbeschilderte T-Kreuzung", img:"", options:{a:"Rechtsvortritt", b:"Hauptstrasse hat Vortritt", c:"Linksabbieger warten", d:"Kein Vortritt"}, answer:"a"},
+  {question:"15. Bahnübergang rotes Licht", img:"", options:{a:"Anhalten", b:"Langsam drüber fahren", c:"Nur hupen", d:"Direkt anhalten und Fenster öffnen"}, answer:"a"},
+  {question:"16. Mindestabstand bei 120km/h", img:"", options:{a:"~60 m", b:"~30 m", c:"~120 m", d:"~15 m"}, answer:"a"},
+  {question:"17. Nebelschlusslicht", img:"", options:{a:"Nur bei Sicht <50m", b:"Immer nachts", c:"Bei Regen", d:"Nur im Tunnel"}, answer:"a"},
+  {question:"18. Überholen Landstrasse", img:"", options:{a:"Nur überholen, wenn freie Sicht", b:"Immer überholen", c:"Ohne Blinker überholen", d:"Nur links rückwärts überholen"}, answer:"a"},
+  {question:"19. Zone 30", img:"", options:{a:"Fussgänger haben oft Vortritt", b:"Immer gleich schnell wie woanders", c:"Nur Velos haben Vortritt", d:"Autos dürfen schneller fahren"}, answer:"a"},
+  {question:"20. Bergab, Fahrzeug bremst", img:"", options:{a:"Abstand vergrössern & motorbremsen", b:"Sofort Vollbremsung", c:"Hupen", d:"Rechts überholen"}, answer:"a"},
+  {question:"21. Linksabbiegen bei Gegenverkehr", img:"", options:{a:"Immer zuerst fahren", b:"Linkskreuzen", c:"Vortritt gewähren", d:"Hupen"}, answer:"c"},
+  {question:"22. Ampel rot+Grünpfeil rechts", img:"", options:{a:"Nur bei frei rechts abbiegen", b:"Immer abbiegen", c:"Nur geradeaus", d:"Verbot für Rechtsabbieger"}, answer:"a"},
+  {question:"23. Parkieren auf Gehweg", img:"", options:{a:"Erlaubt", b:"Verboten", c:"Nur mit Parkscheibe", d:"Nur Kurzparkzone"}, answer:"b"},
+  {question:"24. Geschwindigkeit innerorts", img:"", options:{a:"50 km/h", b:"30 km/h", c:"80 km/h", d:"60 km/h"}, answer:"a"},
+  {question:"25. Geschwindigkeitsbegrenzung auf Landstrasse", img:"", options:{a:"100 km/h", b:"80 km/h", c:"120 km/h", d:"90 km/h"}, answer:"a"},
+  {question:"26. Spurwechsel Autobahn", img:"", options:{a:"Mit Blinker & Rückspiegel", b:"Nur Blinker", c:"Ohne Blinker", d:"Nur Spur beobachten"}, answer:"a"},
+  {question:"27. Kreisverkehr Einfahrt mit rotem Schild", img:"", options:{a:"Nicht einfahren", b:"Langsam fahren", c:"Immer einfahren", d:"Nur links einfahren"}, answer:"a"},
+  {question:"28. Rechtsvortritt bei Strassenverengung", img:"", options:{a:"Rechts hat Vortritt", b:"Links hat Vortritt", c:"Grösseres Fahrzeug", d:"Schnelleres Fahrzeug"}, answer:"a"},
+  {question:"29. Bahnübergang mit Schranken", img:"", options:{a:"Warten bis Schranke hoch", b:"Direkt fahren", c:"Nur hupen", d:"Überholen erlaubt"}, answer:"a"},
+  {question:"30. Autobahn Regen & Aquaplaning", img:"", options:{a:"Geschwindigkeit reduzieren", b:"Schneller fahren", c:"Blinken", d:"Abstand verkleinern"}, answer:"a"} mit Pfeil + Fahrrad", img:"https://upload.wikimedia.org/wikipedia/commons/c/c4/CH_Fahrverbot_Fahrrad.svg", options:{a:"Fahrräder müssen rechts fahren", b:"Rechtsabbiegen für alle vorgeschrieben", c:"Nur Fahrradverkehr erlaubt", d:"Radfahrer auf der Strasse"}, answer:"a"},
+  {question:"31. Schulbus hält, Kinder steigen aus", img:"https://upload.wikimedia.org/wikipedia/commons/6/64/CH_Schulbus_Halt.svg", options:{a:"Ja, wenn kein Gegenverkehr", b:"Nein, anhalten und warten", c:"Nur wenn Bus blinkt", d:"Nur rechts vorbeifahren"}, answer:"b"},
+  // hier die restlichen 25 Fragen hinzufügen...
+];
 
-// ================== EMAIL ==================
-function renderEmails(){
-  const list=document.getElementById("emailList");
-  list.innerHTML="";
-  emails.forEach((mail,i)=>{
-    const div=document.createElement("div");
-    div.className="email-item";
-    div.textContent=mail;
-    const btn=document.createElement("button");
-    btn.textContent="🗑️";
-    btn.addEventListener("click",()=>{
-      emails.splice(i,1);
-      localStorage.setItem("emails",JSON.stringify(emails));
-      renderEmails();
-      alert(`E-Mail ${mail} gelöscht!`);
+// Zufällige Reihenfolge
+function shuffle(array){for(let i=array.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]];} return array;}
+shuffle(quizData);
+
+const quizEl = document.getElementById('quiz');
+const progressEl = document.getElementById('progress');
+const nextBtn = document.getElementById('next');
+const resultEl = document.getElementById('result');
+const exportBtn = document.getElementById('export');
+
+function showQuestion(){
+    quizEl.innerHTML = '';
+    const q = quizData[currentIndex];
+    const questionEl = document.createElement('div');
+    questionEl.classList.add('question');
+    let optionsHtml = '';
+    for(const key in q.options){
+        optionsHtml += `<label><input type="radio" name="q" value="${key}"> ${q.options[key]}</label>`;
+    }
+    questionEl.innerHTML = `<p><strong>${q.question}</strong></p>${q.img?'<img src="'+q.img+'">':''}<div class="options">${optionsHtml}</div>`;
+    quizEl.appendChild(questionEl);
+    progressEl.textContent = `Frage ${currentIndex+1} von ${quizData.length}`;
+}
+
+nextBtn.addEventListener('click',()=>{
+    const selected = document.querySelector('input[name="q"]:checked');
+    if(!selected){alert('Bitte eine Antwort auswählen!'); return;}
+    userAnswers[currentIndex] = selected.value;
+    currentIndex++;
+    if(currentIndex < quizData.length){ showQuestion(); } else { showResult(); }
+});
+
+function showResult(){
+    clearInterval(timerInterval);
+    quizEl.innerHTML='';
+    nextBtn.style.display='none';
+    let score=0;
+    let html = '';
+    quizData.forEach((q,i)=>{
+        const userAns = userAnswers[i];
+        if(userAns===q.answer){score++; html+=`<p>${i+1}. ${q.question} ✅ richtig</p>`;}
+        else{html+=`<p>${i+1}. ${q.question} ❌ falsch (Deine Antwort: ${userAns}, richtig: ${q.answer})</p>`;}
     });
-    div.appendChild(btn);
-    list.appendChild(div);
-  });
+    resultEl.innerHTML = `Du hast ${score} von ${quizData.length} richtig (${Math.round(score/quizData.length*100)}%)<br>`+(score>=Math.ceil(quizData.length*0.85)?'<span class="correct">Bestanden ✅</span>':'<span class="wrong">Nicht bestanden ❌</span>')+'<hr>'+html;
+    exportBtn.style.display='inline';
 }
-function addEmail(){
-  const val=document.getElementById("emailInput").value.trim();
-  if(!val){ alert("Bitte eine E-Mail eingeben!"); return; }
-  if(emails.includes(val)){ alert("E-Mail ist schon gespeichert!"); return; }
-  emails.push(val);
-  localStorage.setItem("emails",JSON.stringify(emails));
-  document.getElementById("emailInput").value="";
-  renderEmails();
-  alert(`E-Mail ${val} hinzugefügt!`);
-}
-document.getElementById("addEmailBtn").addEventListener("click",addEmail);
-renderEmails();
 
-document.getElementById("testEmailBtn").addEventListener("click", ()=>{
-  if(emails.length===0){ alert("Keine E-Mails gespeichert!"); return; }
-  emails.forEach(e=>{
-    fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&subject=${encodeURIComponent("Cyber Winter Sturm Alarm Test")}&body=${encodeURIComponent("Dies ist eine Test-E-Mail. Status: Keine Gefahr")}`)
-    .then(()=>alert(`Test-Mail an ${e} gesendet!`))
-    .catch(()=>alert(`Fehler beim Senden an ${e}`));
-  });
+exportBtn.addEventListener('click',()=>{
+    const blob = new Blob([resultEl.innerText],{type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='Ergebnis.txt'; a.click(); URL.revokeObjectURL(url);
 });
 
-// ================== AMPEL ==================
-function getLevel(temp,snow){
-  if(temp>=-5 && snow<2) return "green";
-  if(temp<-5 && temp>=-10 || snow>=2) return "yellow";
-  if(temp<-10 && temp>=-15 || snow>=5) return "orange";
-  return "red";
-}
-
-// ================== COUNTDOWN ==================
-function startCountdown(target){
-  clearInterval(window.countdownInterval);
-  window.countdownInterval=setInterval(()=>{
-    const diff=target-Date.now();
-    if(diff<=0){
-      document.getElementById("countdown").innerHTML="GEFAHR BEGINNT JETZT!";
-      clearInterval(window.countdownInterval);
-      return;
-    }
-    const h=Math.floor(diff/3600000);
-    const m=Math.floor(diff%3600000/60000);
-    const s=Math.floor(diff%60000/1000);
-    document.getElementById("countdown").innerHTML=`Zeit bis Gefahr: ${h}h ${m}m ${s}s`;
-  },1000);
-}
-
-// ================== EMAIL SENDEN ==================
-function sendEmailAll(subject,text){
-  emails.forEach(e=>{
-    fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`)
-    .then(()=>console.log(`Mail an ${e} gesendet`))
-    .catch(console.error);
-  });
-}
-
-// ================== WETTER ==================
-async function checkWeather(lat,lon){
-  try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,snowfall,time&timezone=Europe/Zurich`;
-    const res=await fetch(url);
-    if(!res.ok) throw new Error("Fehler beim Abrufen");
-    const data=await res.json();
-
-    let minTemp=999,snowSum=0,danger=null;
-    for(let i=0;i<28;i++){
-      const t=data.hourly.temperature_2m[i];
-      const s=data.hourly.snowfall[i];
-      minTemp=Math.min(minTemp,t);
-      snowSum+=s;
-      if(!danger && getLevel(t,s)==="red") danger=new Date(data.hourly.time[i]).getTime();
-    }
-
-    const level=getLevel(minTemp,snowSum);
-    updateUI(level,minTemp,snowSum);
-
-    if(danger) startCountdown(danger);
-    else document.getElementById("countdown").innerHTML="Keine Gefahr in den nächsten 28 Stunden";
-  }catch(e){
-    document.getElementById("status").innerHTML="Fehler beim Laden der Wetterdaten";
-    console.error(e);
-  }
-}
-
-// ================== UI ==================
-function updateUI(level,temp,snow){
-  const status=document.getElementById("status");
-  const ampel=document.getElementById("ampel");
-  const txt={green:"Keine Gefahr",yellow:"Erhöhte Gefahr",orange:"Mittlere Gefahr",red:"Extreme Gefahr – Nicht rausgehen"};
-  
-  status.innerHTML=`Tiefsttemperatur: ${temp.toFixed(1)}°C<br>Schnee: ${snow.toFixed(1)} cm`;
-  ampel.className="";
-  ampel.classList.add(level);
-  ampel.innerText=txt[level];
-
-  if(level!==lastLevel){
-    if(emails.length>0){
-      let message="";
-      if(level==="red") message="Extreme Gefahr – Bitte zuhause bleiben!";
-      else if(level==="green" && !greenSent){
-        message="Keine Gefahr in den nächsten 28 Stunden";
-        greenSent=true;
-      } else if(level!=="green") greenSent=false;
-      else message=`Status geändert: ${txt[level]}`;
-
-      if(message) sendEmailAll("Cyber Winter Sturm Alarm",message);
-    }
-    lastLevel=level;
-  }
-}
-
-// ================== START ==================
-document.getElementById("startBtn").addEventListener("click",()=>{
-  document.getElementById("startBtn").style.display="none";
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos=>{
-      latitude=pos.coords.latitude;
-      longitude=pos.coords.longitude;
-      document.getElementById("status").innerHTML=`Standort erkannt: ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
-      checkWeather(latitude,longitude);
-      setInterval(()=>checkWeather(latitude,longitude),300000); // alle 5 Minuten
-    },()=>alert("Standort-Zugriff erforderlich"));
-  } else alert("Browser unterstützt keinen Standortzugriff!");
-});
+showQuestion();
 </script>
 </body>
 </html>
