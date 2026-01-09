@@ -2,9 +2,9 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>WINTER ALARM</title>
+<title>CYBER WINTERSTURM ALARM</title>
 <style>
-body { font-family: Arial, sans-serif; background-color: #f0f4f8; color: #333; padding: 20px; }
+body { font-family: Arial, sans-serif; background-color: #f0f4f8; color: #333; padding: 20px; cursor:pointer; }
 .alarm { background-color: #ff4d4d; color: white; padding: 20px; margin: 20px 0; border-radius: 10px; font-size: 1.2em; }
 .safe { background-color: #4caf50; color: white; padding: 20px; margin: 20px 0; border-radius: 10px; font-size: 1.2em; }
 .countdown { font-weight: bold; }
@@ -16,7 +16,7 @@ input { padding: 5px; margin-top: 5px; margin-bottom: 10px; width: 100%; box-siz
 </style>
 </head>
 <body>
-<h1>WINTER ALARM</h1>
+<h1>CYBER WINTERSTURM ALARM</h1>
 
 <p>Trage hier deine E-Mail-Adresse(n) ein (mit Komma trennen):</p>
 <input type="text" id="emailInput" placeholder="email1@gmail.com,email2@bluewin.ch,email3@outlook.de">
@@ -24,7 +24,7 @@ input { padding: 5px; margin-top: 5px; margin-bottom: 10px; width: 100%; box-siz
 <button id="deleteEmails">E-Mail-Adressen löschen</button>
 <p id="emailStatus">Keine E-Mail-Adressen gespeichert.</p>
 
-<p id="status">Die App initialisiert...</p>
+<p id="status">Tippe irgendwo auf die Seite, um Standort & Notifications freizugeben.</p>
 <button id="testBtn">Test-Alarm auslösen</button>
 <button id="deleteTestBtn" style="display:none;">Test löschen</button>
 
@@ -38,16 +38,15 @@ let lastStatus = "unknown";
 let testActive = false;
 let notificationsAllowed = false;
 let audioAllowed = false;
-let userLat = 47.187; // Default Ettiswil
-let userLon = 7.964;
+let firstClickDone = false;
+let userLat = 47.187; 
+let userLon = 7.964; 
 
-// Blockierte Fake-Domains
 const blockedDomains = ["tempmail.com","10minutemail.com","mailinator.com","yopmail.com","fakeinbox.com"];
 const alarmSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
 const loudAlarm = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
 loudAlarm.volume = 1.0;
 
-// Hilfsfunktionen
 function isValidEmail(email){
   const regex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if(!regex.test(email)) return false;
@@ -63,49 +62,17 @@ function formatCountdown(ms){
   return {text:`⏳ ${h}h ${m}m ${s}s`, totalMs: ms};
 }
 
-// Lokale Speicherung laden
-window.addEventListener('load', async ()=>{
+// Lokale E-Mails laden
+window.addEventListener('load', ()=>{
   const savedEmails = localStorage.getItem('winterAlarmEmails');
   if(savedEmails){
     document.getElementById('emailInput').value = savedEmails;
     emailList = savedEmails.split(',').map(e => e.trim()).filter(e => e);
     document.getElementById('emailStatus').textContent = emailList.length>0 ? "Gespeicherte E-Mail-Adressen: "+emailList.join(", ") : "Keine gültigen E-Mail-Adressen gespeichert.";
   }
-
-  // Notifications anfragen
-  if ("Notification" in window) {
-    const permission = await Notification.requestPermission();
-    notificationsAllowed = (permission === "granted");
-  }
-
-  // Standort abfragen
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos=>{
-      userLat = pos.coords.latitude;
-      userLon = pos.coords.longitude;
-      console.log("Standort:", userLat, userLon);
-    }, err=>{
-      console.warn("Kein Standort erlaubt, nutze Standard.");
-    });
-  }
-
-  // Audio vorbereiten
-  try{
-    await alarmSound.play(); await alarmSound.pause();
-    await loudAlarm.play(); await loudAlarm.pause();
-    audioAllowed=true;
-  }catch(e){console.warn("Audio muss evtl. manuell bestätigt werden.");}
-
-  document.getElementById('status').innerHTML="✅ WINTER ALARM aktiviert: Audio, Notifications, Standort & E-Mails!";
-
-  // Timer starten
-  checkWinterAlarm();
-  setInterval(updateCountdowns,1000);
-  setInterval(checkWinterAlarm,300000); // alle 5 Minuten
-  resetGreenEmailDaily();
 });
 
-// E-Mail speichern
+// E-Mail speichern/löschen
 document.getElementById('saveEmails').addEventListener('click', ()=>{
   const input = document.getElementById('emailInput').value;
   emailList.length = 0;
@@ -128,10 +95,49 @@ document.getElementById('deleteEmails').addEventListener('click', ()=>{
   alert("Alle E-Mail-Adressen wurden gelöscht!");
 });
 
+// Erstes Tippen auf Seite
+document.body.addEventListener('click', async ()=>{
+  if(firstClickDone) return;
+  firstClickDone = true;
+
+  // Notifications
+  if ("Notification" in window) {
+    const permission = await Notification.requestPermission();
+    notificationsAllowed = (permission === "granted");
+    if(notificationsAllowed) new Notification("CYBER WINTERSTURM ALARM aktiviert!");
+  }
+
+  // Geolocation
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      userLat = pos.coords.latitude;
+      userLon = pos.coords.longitude;
+      console.log("Standort:", userLat, userLon);
+    }, err=>{
+      console.warn("Kein Standort erlaubt, nutze Standard.");
+    });
+  }
+
+  // Audio freigeben
+  try{
+    await alarmSound.play(); await alarmSound.pause();
+    await loudAlarm.play(); await loudAlarm.pause();
+    audioAllowed = true;
+  }catch(e){console.warn("Audio blockiert");}
+
+  document.getElementById('status').innerHTML="✅ CYBER WINTERSTURM ALARM aktiv: Standort, Notifications & Audio freigegeben.";
+
+  // Timer starten
+  checkWinterAlarm();
+  setInterval(updateCountdowns,1000);
+  setInterval(checkWinterAlarm,300000); 
+  resetGreenEmailDaily();
+});
+
 // Wettercheck (Demo)
 async function checkWinterAlarm(){
   const now = new Date();
-  if(Math.random()<0.2){ // 20% Chance Alarm
+  if(Math.random()<0.2){ 
     currentAlerts = [{start:now,end:new Date(now.getTime()+60*60*1000)}];
   } else currentAlerts = [];
   updateAlarmDisplay();
@@ -144,7 +150,7 @@ function updateAlarmDisplay(){
   const now=new Date();
   const currentStatus = currentAlerts.length>0 ? "alarm" : "safe";
   if(currentAlerts.length>0){
-    alarmMessage=`<div class="alarm">⚠️ WINTER ALARM!</div>`;
+    alarmMessage=`<div class="alarm">⚠️ CYBER WINTERSTURM ALARM!</div>`;
     currentAlerts.forEach((p,idx)=>{
       alarmMessage+=`<div class="alarm" id="alert-${idx}">⏱ Zeitraum: ${p.start.toLocaleString()} bis ${p.end.toLocaleString()} <span class="countdown" id="countdown-${idx}"></span></div>`;
     });
@@ -166,7 +172,7 @@ function triggerAlarm(){
   currentAlerts.forEach(alert=>{
     if(alert.start<=now && alert.end>=now){
       sendEmail("alarm");
-      if(notificationsAllowed) new Notification("WINTER ALARM",{body:"Sturm/Schnee aktuell!"});
+      if(notificationsAllowed) new Notification("CYBER WINTERSTURM ALARM",{body:"Sturm/Schnee aktuell!"});
       if(audioAllowed){ loudAlarm.currentTime=0; loudAlarm.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]); }
     }
   });
