@@ -39,7 +39,7 @@ let emails=JSON.parse(localStorage.getItem("emails")||"[]");
 const alarm=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 alarm.loop=true;
 
-/* ================== EMAIL HANDLING ================== */
+// ================== EMAIL HANDLING ==================
 function renderEmails(){
   const list=document.getElementById("emailList");
   list.innerHTML="";
@@ -68,7 +68,7 @@ function removeEmail(i){
 document.getElementById("addEmailBtn").addEventListener("click",addEmail);
 renderEmails();
 
-/* ================== AMPEL ================== */
+// ================== AMPEL ==================
 function getLevel(temp,snow){
   if(temp>=-5 && snow<2) return "green";
   if(temp<-5 && temp>=-10 || snow>=2) return "yellow";
@@ -76,7 +76,7 @@ function getLevel(temp,snow){
   return "red";
 }
 
-/* ================== COUNTDOWN ================== */
+// ================== COUNTDOWN ==================
 function startCountdown(target){
   clearInterval(window.countdownInterval);
   window.countdownInterval=setInterval(()=>{
@@ -102,14 +102,14 @@ function startCountdown(target){
   },1000);
 }
 
-/* ================== EMAIL SENDEN ================== */
+// ================== EMAIL SENDEN ==================
 function sendEmailAll(text){
   emails.forEach(e=>{
     fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&body=${encodeURIComponent(text)}`);
   });
 }
 
-/* ================== WETTER CHECK ================== */
+// ================== WETTER CHECK ==================
 async function checkWeather(lat,lon){
   try{
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,snowfall,time&timezone=Europe/Zurich`;
@@ -144,7 +144,7 @@ async function checkWeather(lat,lon){
   }
 }
 
-/* ================== UI UPDATE ================== */
+// ================== UI UPDATE ==================
 function updateUI(level,temp,snow){
   const status=document.getElementById("status");
   const ampel=document.getElementById("ampel");
@@ -167,18 +167,41 @@ function updateUI(level,temp,snow){
   }
 }
 
-/* ================== START BUTTON ================== */
-document.getElementById("startBtn").addEventListener("click",async()=>{
+// ================== START BUTTON ==================
+const startBtn = document.getElementById("startBtn");
+
+function startApp() {
   if(activated) return;
-  activated=true;
-  document.getElementById("startBtn").style.display="none";
-  await Notification.requestPermission();
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const {latitude,longitude}=pos.coords;
-    checkWeather(latitude,longitude);
-    setInterval(()=>checkWeather(latitude,longitude),300000); // 5 Minuten
-  },()=>alert("Standort-Zugriff erforderlich"));
-});
+  activated = true;
+  startBtn.style.display="none";
+
+  // Standort
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        const {latitude,longitude}=pos.coords;
+        checkWeather(latitude,longitude);
+        setInterval(()=>checkWeather(latitude,longitude),300000); // 5 Minuten
+      },
+      ()=>alert("Standort-Zugriff ist erforderlich, damit der Alarm funktioniert")
+    );
+  } else {
+    alert("Dein Browser unterstützt keinen Standortzugriff!");
+  }
+
+  // Push
+  if("Notification" in window){
+    Notification.requestPermission().then(permission=>{
+      if(permission!=="granted"){
+        alert("Du musst Benachrichtigungen erlauben, damit Alarme angezeigt werden.");
+      }
+    });
+  }
+}
+
+startBtn.addEventListener("click", startApp);
+startBtn.addEventListener("touchstart", startApp);
 </script>
+
 </body>
 </html>
