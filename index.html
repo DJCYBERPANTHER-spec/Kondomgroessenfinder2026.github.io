@@ -5,55 +5,68 @@
 <title>CYBER WINTER STURM ALARM SCHWEIZ</title>
 
 <style>
-body {
+body{
   font-family: Arial, sans-serif;
   background:#eef2f6;
   padding:20px;
+}
+h1{text-align:center;}
+
+button{
+  padding:12px;
+  font-size:1em;
+  border:none;
+  border-radius:8px;
   cursor:pointer;
 }
-h1 { text-align:center; }
 
-.status {
-  padding:20px;
-  margin-top:15px;
+#startBtn{
+  width:100%;
+  background:#3498db;
   color:white;
-  font-size:1.2em;
+  margin-bottom:20px;
+}
+
+input{
+  padding:8px;
+  width:220px;
+}
+
+.status{
+  margin-top:20px;
+  padding:20px;
   border-radius:10px;
+  font-size:1.2em;
+  color:white;
   text-align:center;
 }
 
-.green { background:#2ecc71; }
-.yellow { background:#f1c40f; color:black; }
-.orange { background:#e67e22; }
-.red { background:#e74c3c; }
+.green{background:#2ecc71;}
+.yellow{background:#f1c40f;color:black;}
+.orange{background:#e67e22;}
+.red{background:#e74c3c;}
 
-input { padding:6px; width:240px; }
-button { padding:6px; margin:4px; }
-
-.email-item {
-  margin:5px 0;
-}
+.email-item{margin:6px 0;}
 </style>
 </head>
 
 <body>
-<h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
-<p><b>Tippe einmal auf den Bildschirm</b>, um Standort & Benachrichtigungen zu aktivieren.</p>
 
-<hr>
+<h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
+
+<button id="startBtn">🔔 Alarm aktivieren</button>
 
 <h3>E-Mail Benachrichtigungen</h3>
 <input id="emailInput" placeholder="E-Mail eingeben">
 <button onclick="addEmail()">➕</button>
 <div id="emailList"></div>
 
-<hr>
-
 <div id="output" class="status green">
-Noch keine Daten – warte auf Standort…
+Noch keine Daten – bitte Alarm aktivieren
 </div>
 
 <script>
+/* ===================== BASIS ===================== */
 let emails = JSON.parse(localStorage.getItem("emails") || "[]");
 let lastAmpel = null;
 let activated = false;
@@ -61,7 +74,7 @@ let activated = false;
 const alarmSound = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 alarmSound.loop = true;
 
-// ---------- EMAILS ----------
+/* ===================== EMAILS ===================== */
 function renderEmails(){
   const box = document.getElementById("emailList");
   box.innerHTML = "";
@@ -89,15 +102,15 @@ function removeEmail(i){
 }
 renderEmails();
 
-// ---------- AMPEL LOGIK ----------
+/* ===================== AMPEL LOGIK ===================== */
 function getAmpel(temp, snow){
   if(temp >= -5 && snow < 2) return "green";
-  if(temp < -5 && temp >= -10 || snow >= 2) return "yellow";
-  if(temp < -10 && temp >= -15 || snow >= 5) return "orange";
+  if((temp < -5 && temp >= -10) || snow >= 2) return "yellow";
+  if((temp < -10 && temp >= -15) || snow >= 5) return "orange";
   return "red";
 }
 
-// ---------- WETTER CHECK ----------
+/* ===================== WETTER ===================== */
 async function checkWeather(lat, lon){
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,snowfall&timezone=Europe/Zurich`;
   const res = await fetch(url);
@@ -111,25 +124,24 @@ async function checkWeather(lat, lon){
     snowSum += data.hourly.snowfall[i];
   }
 
-  const ampel = getAmpel(minTemp, snowSum);
-  updateUI(ampel, minTemp, snowSum);
+  updateUI(getAmpel(minTemp, snowSum), minTemp, snowSum);
 }
 
-// ---------- UI & ALARM ----------
+/* ===================== UI & ALARM ===================== */
 function updateUI(ampel, temp, snow){
   const box = document.getElementById("output");
   box.className = "status " + ampel;
 
-  const text = {
-    green: "🟢 Keine Gefahr in den nächsten 28 Stunden",
-    yellow: "🟡 Erhöhte Wintergefahr – Vorsicht",
-    orange: "🟠 Mittlere Gefahr – Verkehr eingeschränkt",
-    red: "🔴 EXTREME GEFAHR – NICHT RAUSGEHEN"
+  const text={
+    green:"🟢 Keine Gefahr in den nächsten 28 Stunden",
+    yellow:"🟡 Erhöhte Wintergefahr – Vorsicht",
+    orange:"🟠 Mittlere Gefahr – Verkehr eingeschränkt",
+    red:"🔴 EXTREME GEFAHR – NICHT RAUSGEHEN"
   };
 
   box.innerHTML = `
     ${text[ampel]}<br>
-    Temperatur min: ${temp.toFixed(1)}°C<br>
+    Min. Temperatur: ${temp.toFixed(1)}°C<br>
     Schnee: ${snow.toFixed(1)} cm
   `;
 
@@ -149,21 +161,30 @@ function updateUI(ampel, temp, snow){
   }
 }
 
-// ---------- AKTIVIERUNG (ERSTER KLICK) ----------
-document.body.addEventListener("click", ()=>{
+/* ===================== START BUTTON ===================== */
+document.getElementById("startBtn").addEventListener("click", async ()=>{
   if(activated) return;
   activated = true;
+  document.getElementById("startBtn").style.display="none";
 
-  Notification.requestPermission();
+  if("Notification" in window){
+    await Notification.requestPermission();
+  }
+
+  if(!navigator.geolocation){
+    alert("Standort wird nicht unterstützt.");
+    return;
+  }
 
   navigator.geolocation.getCurrentPosition(pos=>{
     const {latitude, longitude} = pos.coords;
     checkWeather(latitude, longitude);
     setInterval(()=>checkWeather(latitude, longitude), 300000);
   }, ()=>{
-    alert("Standort wird benötigt!");
+    alert("Standort-Zugriff abgelehnt");
   });
 });
 </script>
+
 </body>
 </html>
