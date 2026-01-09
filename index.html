@@ -5,13 +5,14 @@
 <title>CYBER WINTER STURM ALARM SCHWEIZ</title>
 <style>
 body{font-family:Arial,sans-serif;background:#eef2f6;padding:20px;text-align:center;}
-h1{text-align:center;margin-bottom:5px;}
+h1{text-align:center;margin-bottom:10px;}
 #ampel{margin:10px auto;padding:20px;width:300px;border-radius:12px;color:white;font-size:1.4em;font-weight:bold;}
 .green{background:#2ecc71;}
 .yellow{background:#f1c40f;color:black;}
 .orange{background:#e67e22;}
 .red{background:#e74c3c;}
-button{padding:12px;font-size:1.1em;border:none;border-radius:12px;cursor:pointer;margin:5px;}
+button{padding:14px;font-size:1.2em;border:none;border-radius:12px;cursor:pointer;margin:5px;}
+#startBtn{padding:20px;font-size:1.4em;width:90%;}
 input{padding:8px;width:220px;}
 .email-item{margin:6px 0;}
 #countdown{margin-top:15px;font-weight:bold;}
@@ -21,7 +22,7 @@ input{padding:8px;width:220px;}
 
 <h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
 <div id="ampel" class="green">🟢 Status: Keine Gefahr</div>
-<button id="startBtn">🔔 Alarm aktivieren</button>
+<button id="startBtn">🔔 Klicke hier, um Alarm zu aktivieren</button>
 
 <h3>E-Mail Benachrichtigungen</h3>
 <input id="emailInput" placeholder="E-Mail eingeben">
@@ -178,9 +179,9 @@ function updateUI(level,temp,snow){
 // ================== START BUTTON ==================
 const startBtn = document.getElementById("startBtn");
 
-function startApp() {
+function startApp(){
   if(activated) return;
-  activated = true;
+  activated=true;
   startBtn.style.display="none";
 
   // Standort
@@ -189,7 +190,7 @@ function startApp() {
       pos=>{
         const {latitude,longitude}=pos.coords;
         checkWeather(latitude,longitude);
-        setInterval(()=>checkWeather(latitude,longitude),300000); // 5 Minuten
+        setInterval(()=>checkWeather(latitude,longitude),300000); // alle 5 Minuten
       },
       ()=>alert("Standort-Zugriff ist erforderlich, damit der Alarm funktioniert")
     );
@@ -207,9 +208,8 @@ function startApp() {
   }
 }
 
-startBtn.addEventListener("click", startApp);
-startBtn.addEventListener("touchstart", startApp);
-
+startBtn.addEventListener("click",startApp);
+startBtn.addEventListener("touchstart",startApp);
 </script>
 </body>
 </html>
