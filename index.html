@@ -2,238 +2,175 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>CYBER WINTERSTURM ALARM</title>
+<title>CYBER WINTER STURM ALARM SCHWEIZ</title>
 <style>
-body { font-family: Arial, sans-serif; background-color: #f0f4f8; color: #333; padding: 20px; cursor:pointer; }
-.alarm { background-color: #ff4d4d; color: white; padding: 20px; margin: 20px 0; border-radius: 10px; font-size: 1.2em; }
-.safe { background-color: #4caf50; color: white; padding: 20px; margin: 20px 0; border-radius: 10px; font-size: 1.2em; }
-.countdown { font-weight: bold; }
-.countdown.green { color: green; }
-.countdown.yellow { color: orange; }
-.countdown.red { color: red; }
-button { padding: 10px 20px; font-size: 1em; margin-top: 10px; margin-right:5px; }
-input { padding: 5px; margin-top: 5px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+body { font-family: Arial; background:#f0f4f8; color:#333; padding:20px; cursor:pointer; }
+.canton { padding:10px; margin:5px; border-radius:5px; color:white; font-weight:bold; }
+.green{background:green;}
+.yellow{background:orange;}
+.orange{background:darkorange;}
+.red{background:red;}
+button { margin:3px; padding:5px; }
+input { width:250px; padding:5px; }
+.countdown { font-weight:bold; }
+#emailListContainer div { margin-bottom:5px; }
 </style>
 </head>
 <body>
-<h1>CYBER WINTERSTURM ALARM</h1>
+<h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
+<p>Tippe irgendwo auf die Seite, um Standort & Notifications freizugeben.</p>
 
-<p>Trage hier deine E-Mail-Adresse(n) ein (mit Komma trennen):</p>
-<input type="text" id="emailInput" placeholder="email1@gmail.com,email2@bluewin.ch,email3@outlook.de">
-<button id="saveEmails">E-Mail-Adressen speichern</button>
-<button id="deleteEmails">E-Mail-Adressen löschen</button>
-<p id="emailStatus">Keine E-Mail-Adressen gespeichert.</p>
+<h2>E-Mail-Adressen verwalten</h2>
+<input type="text" id="singleEmailInput" placeholder="Neue E-Mail eingeben">
+<button id="addEmailBtn">➕ Hinzufügen</button>
+<div id="emailListContainer"></div>
 
-<p id="status">Tippe irgendwo auf die Seite, um Standort & Notifications freizugeben.</p>
+<div id="swissMap"></div>
+<p id="status"></p>
+
 <button id="testBtn">Test-Alarm auslösen</button>
 <button id="deleteTestBtn" style="display:none;">Test löschen</button>
 
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbxETt5pEIsHFU19u2IL1ouZ_crteiaepipClCflXxjDhDUEvYH_-BaJFBAJQCntdZy_/exec";
+const cantons=[
+  {code:"ZH",lat:47.378,lon:8.54},{code:"BE",lat:46.948,lon:7.447},{code:"LU",lat:47.051,lon:8.309},
+  {code:"UR",lat:46.897,lon:8.631},{code:"SZ",lat:47.020,lon:8.645},{code:"OW",lat:46.893,lon:8.327},
+  {code:"NW",lat:46.972,lon:8.305},{code:"GL",lat:46.983,lon:9.066},{code:"ZG",lat:47.152,lon:8.517},
+  {code:"FR",lat:46.802,lon:7.154},{code:"SO",lat:47.207,lon:7.537},{code:"BS",lat:47.558,lon:7.588},
+  {code:"BL",lat:47.555,lon:7.733},{code:"SH",lat:47.703,lon:8.638},{code:"AR",lat:47.366,lon:9.417},
+  {code:"AI",lat:47.366,lon:9.566},{code:"SG",lat:47.424,lon:9.376},{code:"GR",lat:46.859,lon:9.541},
+  {code:"AG",lat:47.392,lon:8.045},{code:"TG",lat:47.534,lon:9.059},{code:"TI",lat:46.003,lon:8.955},
+  {code:"VD",lat:46.519,lon:6.632},{code:"VS",lat:46.229,lon:7.358},{code:"NE",lat:46.992,lon:6.931},
+  {code:"GE",lat:46.204,lon:6.143},{code:"JU",lat:47.351,lon:7.151}
+];
 
-let emailList = [];
-let currentAlerts = [];
-let greenEmailSentToday = false;
-let lastStatus = "unknown";
-let testActive = false;
-let notificationsAllowed = false;
-let audioAllowed = false;
-let firstClickDone = false;
-let userLat = 47.187; 
-let userLon = 7.964; 
-
-const blockedDomains = ["tempmail.com","10minutemail.com","mailinator.com","yopmail.com","fakeinbox.com"];
+let emailList=[];
+let firstClickDone=false;
+let lastStatusByCanton={};
+let testActive=false;
 const alarmSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
-const loudAlarm = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
-loudAlarm.volume = 1.0;
+alarmSound.volume=1.0;
 
-function isValidEmail(email){
-  const regex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if(!regex.test(email)) return false;
-  const domain=email.split("@")[1].toLowerCase();
-  if(blockedDomains.includes(domain)) return false;
-  return true;
+// --- E-Mail Verwaltung ---
+function loadEmails(){
+    const saved = localStorage.getItem('emails');
+    emailList = saved ? saved.split(',') : [];
+    renderEmailList();
 }
-function formatCountdown(ms){
-  if(ms<0) ms=0;
-  const h=Math.floor(ms/(1000*60*60));
-  const m=Math.floor((ms%(1000*60*60))/(1000*60));
-  const s=Math.floor((ms%60000)/1000);
-  return {text:`⏳ ${h}h ${m}m ${s}s`, totalMs: ms};
+function renderEmailList(){
+    const container=document.getElementById('emailListContainer');
+    container.innerHTML="";
+    emailList.forEach((email,index)=>{
+        const div=document.createElement('div');
+        div.textContent=email+' ';
+        const delBtn=document.createElement('button');
+        delBtn.textContent='🗑️';
+        delBtn.addEventListener('click',()=>{
+            emailList.splice(index,1);
+            localStorage.setItem('emails',emailList.join(','));
+            renderEmailList();
+        });
+        div.appendChild(delBtn);
+        container.appendChild(div);
+    });
 }
-
-// Lokale E-Mails laden
-window.addEventListener('load', ()=>{
-  const savedEmails = localStorage.getItem('winterAlarmEmails');
-  if(savedEmails){
-    document.getElementById('emailInput').value = savedEmails;
-    emailList = savedEmails.split(',').map(e => e.trim()).filter(e => e);
-    document.getElementById('emailStatus').textContent = emailList.length>0 ? "Gespeicherte E-Mail-Adressen: "+emailList.join(", ") : "Keine gültigen E-Mail-Adressen gespeichert.";
-  }
+document.getElementById('addEmailBtn').addEventListener('click',()=>{
+    const input=document.getElementById('singleEmailInput');
+    const email=input.value.trim();
+    if(email && !emailList.includes(email)){
+        emailList.push(email);
+        localStorage.setItem('emails',emailList.join(','));
+        input.value="";
+        renderEmailList();
+    } else {
+        alert('Ungültige oder bereits vorhandene E-Mail.');
+    }
 });
+loadEmails();
 
-// E-Mail speichern/löschen
-document.getElementById('saveEmails').addEventListener('click', ()=>{
-  const input = document.getElementById('emailInput').value;
-  emailList.length = 0;
-  const invalid = [];
-  input.split(',').forEach(e=>{
-    const trimmed=e.trim();
-    if(!trimmed) return;
-    if(isValidEmail(trimmed)) emailList.push(trimmed);
-    else invalid.push(trimmed);
-  });
-  if(invalid.length>0) alert("❌ Ungültige oder Fake‑E-Mail(s):\n"+invalid.join("\n"));
-  localStorage.setItem('winterAlarmEmails', emailList.join(','));
-  document.getElementById('emailStatus').textContent = emailList.length>0 ? "Gespeicherte E-Mail-Adressen: "+emailList.join(", ") : "Keine gültigen E-Mail-Adressen gespeichert.";
-});
-document.getElementById('deleteEmails').addEventListener('click', ()=>{
-  emailList.length = 0;
-  document.getElementById('emailInput').value="";
-  localStorage.removeItem('winterAlarmEmails');
-  document.getElementById('emailStatus').textContent="Keine E-Mail-Adressen gespeichert.";
-  alert("Alle E-Mail-Adressen wurden gelöscht!");
-});
-
-// Erstes Tippen auf Seite
+// --- Erstes Tippen → Standort & Notifications ---
 document.body.addEventListener('click', async ()=>{
-  if(firstClickDone) return;
-  firstClickDone = true;
+    if(firstClickDone) return;
+    firstClickDone=true;
 
-  // Notifications
-  if ("Notification" in window) {
-    const permission = await Notification.requestPermission();
-    notificationsAllowed = (permission === "granted");
-    if(notificationsAllowed) new Notification("CYBER WINTERSTURM ALARM aktiviert!");
-  }
+    if("Notification" in window){
+        const perm = await Notification.requestPermission();
+        if(perm==="granted") new Notification("CYBER WINTER STURM ALARM SCHWEIZ aktiviert!");
+    }
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>console.log("Standort:",pos.coords.latitude,pos.coords.longitude));
+    }
 
-  // Geolocation
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(pos=>{
-      userLat = pos.coords.latitude;
-      userLon = pos.coords.longitude;
-      console.log("Standort:", userLat, userLon);
-    }, err=>{
-      console.warn("Kein Standort erlaubt, nutze Standard.");
-    });
-  }
-
-  // Audio freigeben
-  try{
-    await alarmSound.play(); await alarmSound.pause();
-    await loudAlarm.play(); await loudAlarm.pause();
-    audioAllowed = true;
-  }catch(e){console.warn("Audio blockiert");}
-
-  document.getElementById('status').innerHTML="✅ CYBER WINTERSTURM ALARM aktiv: Standort, Notifications & Audio freigegeben.";
-
-  // Timer starten
-  checkWinterAlarm();
-  setInterval(updateCountdowns,1000);
-  setInterval(checkWinterAlarm,300000); 
-  resetGreenEmailDaily();
+    checkWinterAmpel();
+    setInterval(checkWinterAmpel,300000); // alle 5 Minuten
 });
 
-// Wettercheck (Demo)
-async function checkWinterAlarm(){
-  const now = new Date();
-  if(Math.random()<0.2){ 
-    currentAlerts = [{start:now,end:new Date(now.getTime()+60*60*1000)}];
-  } else currentAlerts = [];
-  updateAlarmDisplay();
-  if(!testActive) triggerAlarm();
+// --- Ampellogik ---
+function getAmpel(tempMin,snowCm){
+  if(tempMin>=-5 && snowCm<2) return "green";
+  if((tempMin<-5 && tempMin>=-10) || snowCm>=2) return "yellow";
+  if((tempMin<-10 && tempMin>=-15) || snowCm>=5) return "orange";
+  if(tempMin<-15 || snowCm>=10) return "red";
+  return "green";
 }
 
-// Alarmanzeige
-function updateAlarmDisplay(){
-  let alarmMessage="";
-  const now=new Date();
-  const currentStatus = currentAlerts.length>0 ? "alarm" : "safe";
-  if(currentAlerts.length>0){
-    alarmMessage=`<div class="alarm">⚠️ CYBER WINTERSTURM ALARM!</div>`;
-    currentAlerts.forEach((p,idx)=>{
-      alarmMessage+=`<div class="alarm" id="alert-${idx}">⏱ Zeitraum: ${p.start.toLocaleString()} bis ${p.end.toLocaleString()} <span class="countdown" id="countdown-${idx}"></span></div>`;
-    });
-    greenEmailSentToday=false;
-  } else {
-    alarmMessage=`<div class="safe">✅ Kein Sturm/Schnee in den nächsten 48 Stunden</div>`;
-    if(lastStatus!=="safe" && emailList.length>0 && !greenEmailSentToday){
-      sendGreenEmail();
-      greenEmailSentToday=true;
+// --- Wetterdaten abrufen ---
+async function checkWinterAmpel(){
+    const container=document.getElementById('swissMap');
+    container.innerHTML="";
+    for(const c of cantons){
+        try{
+            const url=`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&hourly=temperature_2m,snowfall&timezone=Europe/Zurich`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            let tempMin=Infinity, snowSum=0;
+            for(let i=0;i<28;i++){
+                if(data.hourly.temperature_2m[i]<tempMin) tempMin=data.hourly.temperature_2m[i];
+                snowSum += data.hourly.snowfall[i];
+            }
+            const amp=getAmpel(tempMin,snowSum);
+
+            const div=document.createElement('div');
+            div.className="canton "+amp;
+            div.textContent=`${c.code}: TempMin ${tempMin}°C, Schnee ${snowSum.toFixed(1)}cm → ${amp.toUpperCase()}`;
+            container.appendChild(div);
+
+            if(lastStatusByCanton[c.code]!==amp){
+                lastStatusByCanton[c.code]=amp;
+                if(Notification.permission==="granted") new Notification(`CYBER WINTER STURM: ${c.code} → ${amp.toUpperCase()}`);
+                if(amp==="red"){ alarmSound.currentTime=0; alarmSound.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([500,200,500]); }
+
+                // E-Mail senden (Google Script)
+                if(emailList.length>0){
+                    emailList.forEach(to=>{
+                        fetch(`https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?to=${encodeURIComponent(to)}&canton=${c.code}&ampel=${amp}`)
+                        .then(r=>r.text()).then(t=>console.log(t)).catch(e=>console.error(e));
+                    });
+                }
+            }
+
+        }catch(e){ console.error("Fehler bei Wetterdaten:",e);}
     }
-  }
-  lastStatus = currentStatus;
-  document.getElementById('status').innerHTML=alarmMessage;
 }
 
-// Alarm auslösen
-function triggerAlarm(){
-  const now=new Date();
-  currentAlerts.forEach(alert=>{
-    if(alert.start<=now && alert.end>=now){
-      sendEmail("alarm");
-      if(notificationsAllowed) new Notification("CYBER WINTERSTURM ALARM",{body:"Sturm/Schnee aktuell!"});
-      if(audioAllowed){ loudAlarm.currentTime=0; loudAlarm.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]); }
-    }
-  });
-}
-
-// E-Mail versenden
-function sendEmail(type){
-  emailList.forEach(to=>{
-    const url=`${scriptURL}?to=${encodeURIComponent(to)}&type=${type}`;
-    fetch(url).then(resp=>resp.text()).then(txt=>console.log(txt)).catch(e=>console.error(e));
-  });
-}
-
-// Grüne Erinnerung
-function sendGreenEmail(){
-  emailList.forEach(to=>{
-    const url=`${scriptURL}?to=${encodeURIComponent(to)}&type=green`;
-    fetch(url).then(resp=>resp.text()).then(txt=>console.log("Green Email:",txt)).catch(e=>console.error(e));
-  });
-}
-
-// Countdown
-function updateCountdowns(){
-  const now=new Date();
-  currentAlerts.forEach((alert,idx)=>{
-    const countdownEl=document.getElementById(`countdown-${idx}`);
-    if(countdownEl){
-      const cd = formatCountdown(alert.end-now);
-      countdownEl.textContent = cd.text;
-      if(cd.totalMs<=60000) countdownEl.className='countdown red';
-      else if(cd.totalMs<=120000) countdownEl.className='countdown yellow';
-      else countdownEl.className='countdown green';
-    }
-  });
-}
-
-// Test-Alarm
+// --- Test-Alarm ---
 document.getElementById('testBtn').addEventListener('click', ()=>{
-  testActive=true;
-  const now=new Date();
-  currentAlerts.push({start:now,end:new Date(now.getTime()+60000)});
-  updateAlarmDisplay();
-  triggerAlarm();
-  document.getElementById('deleteTestBtn').style.display='inline';
+    testActive=true;
+    const div=document.createElement("div");
+    div.className="canton red";
+    div.textContent="TEST ALARM: ROT – Alarm aktiv ⏳";
+    document.getElementById('swissMap').appendChild(div);
+    alarmSound.currentTime=0; alarmSound.play();
+    if(navigator.vibrate) navigator.vibrate([500,200,500]);
+    document.getElementById('deleteTestBtn').style.display='inline';
 });
 document.getElementById('deleteTestBtn').addEventListener('click', ()=>{
-  currentAlerts=[];
-  testActive=false;
-  updateAlarmDisplay();
-  document.getElementById('deleteTestBtn').style.display='none';
+    testActive=false;
+    document.getElementById('swissMap').innerHTML="";
+    document.getElementById('deleteTestBtn').style.display='none';
+    checkWinterAmpel();
 });
-
-// Mitternacht Reset
-function resetGreenEmailDaily(){
-  const now = new Date();
-  const millisTillMidnight = new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,0)-now;
-  setTimeout(function(){
-    greenEmailSentToday=false;
-    resetGreenEmailDaily();
-  }, millisTillMidnight);
-}
 </script>
 </body>
 </html>
