@@ -3,33 +3,87 @@
 <head>
 <meta charset="UTF-8">
 <title>CYBER WINTER STURM ALARM SCHWEIZ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{font-family:Arial,sans-serif;background:#eef2f6;padding:20px;text-align:center;}
-h1{text-align:center;margin-bottom:10px;}
-#ampel{margin:10px auto;padding:20px;width:320px;border-radius:12px;color:white;font-size:1.5em;font-weight:bold;}
+body{
+  margin:0;
+  font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background:#f4f6f8;
+  color:#333;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-height:100vh;
+}
+h1{
+  margin:20px 0 10px 0;
+  font-size:2rem;
+  text-align:center;
+}
+#ampel{
+  margin:10px auto;
+  padding:25px 20px;
+  width:90%;
+  max-width:400px;
+  border-radius:15px;
+  color:white;
+  font-size:1.6rem;
+  font-weight:bold;
+  text-align:center;
+  box-shadow:0 4px 15px rgba(0,0,0,0.2);
+}
 .green{background:#2ecc71;}
 .yellow{background:#f1c40f;color:black;}
 .orange{background:#e67e22;}
 .red{background:#e74c3c;}
-button{padding:12px;font-size:1.2em;border:none;border-radius:12px;cursor:pointer;margin:5px;}
-#startBtn{padding:20px;font-size:1.4em;width:90%;}
-input{padding:8px;width:220px;}
-.email-item{margin:6px 0;}
-#countdown{margin-top:15px;font-weight:bold;font-size:1.2em;}
-#status{margin-top:10px;font-size:1.1em;}
+button{
+  padding:12px 18px;
+  font-size:1.1rem;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  margin:5px;
+  box-shadow:0 3px 6px rgba(0,0,0,0.15);
+  transition:0.2s;
+}
+button:hover{opacity:0.9;transform:scale(1.02);}
+#startBtn{
+  padding:18px;
+  font-size:1.3rem;
+  width:90%;
+  max-width:350px;
+  background:#3498db;
+  color:white;
+}
+#emailSection{
+  margin-top:20px;
+  width:90%;
+  max-width:400px;
+  background:white;
+  border-radius:12px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.1);
+  padding:15px;
+}
+#emailInput{padding:10px;width:70%;border-radius:8px;border:1px solid #ccc;font-size:1rem;}
+.email-item{display:flex;justify-content:space-between;align-items:center;margin:5px 0;padding:5px 10px;background:#f1f1f1;border-radius:8px;}
+#countdown,#status{margin-top:15px;font-size:1.1rem;font-weight:500;text-align:center;}
 </style>
 </head>
 <body>
 
 <h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
 <div id="ampel" class="green">Status: Keine Gefahr</div>
-<button id="startBtn">Klicke hier, um Standort zu aktivieren</button>
+<button id="startBtn">Standort aktivieren</button>
 
-<h3>E-Mail Benachrichtigungen</h3>
-<input id="emailInput" placeholder="E-Mail eingeben">
-<button id="addEmailBtn">➕</button>
-<div id="emailList"></div>
-<button id="testEmailBtn">Test-E-Mail senden</button>
+<div id="emailSection">
+  <h3>E-Mail Benachrichtigungen</h3>
+  <div style="display:flex; justify-content:center; margin-bottom:10px;">
+    <input id="emailInput" placeholder="E-Mail eingeben">
+    <button id="addEmailBtn">➕</button>
+  </div>
+  <div id="emailList"></div>
+  <button id="testEmailBtn">Test-E-Mail senden</button>
+</div>
 
 <div id="status"></div>
 <div id="countdown"></div>
@@ -48,7 +102,7 @@ function renderEmails(){
   emails.forEach((mail,i)=>{
     const div=document.createElement("div");
     div.className="email-item";
-    div.textContent=mail+" ";
+    div.textContent=mail;
     const btn=document.createElement("button");
     btn.textContent="🗑️";
     btn.addEventListener("click",()=>{
