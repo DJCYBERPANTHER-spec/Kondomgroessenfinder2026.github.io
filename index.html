@@ -29,7 +29,6 @@ input{padding:8px;width:220px;}
 <input id="emailInput" placeholder="E-Mail eingeben">
 <button id="addEmailBtn">➕</button>
 <div id="emailList"></div>
-
 <button id="testEmailBtn">Test-E-Mail senden</button>
 
 <div id="status"></div>
@@ -40,6 +39,7 @@ const EMAIL_API="https://script.google.com/macros/s/AKfycbxETt5pEIsHFU19u2IL1ouZ
 
 let emails=JSON.parse(localStorage.getItem("emails")||"[]");
 let lastLevel=null;
+let greenSent=false;
 
 // ================== EMAIL ==================
 function renderEmails(){
@@ -164,8 +164,13 @@ function updateUI(level,temp,snow){
     if(emails.length>0){
       let message="";
       if(level==="red") message="Extreme Gefahr – Bitte zuhause bleiben!";
+      else if(level==="green" && !greenSent){
+        message="Keine Gefahr in den nächsten 28 Stunden";
+        greenSent=true;
+      } else if(level!=="green") greenSent=false; // Reset, sobald gelb/orange/rot kommt
       else message=`Status geändert: ${txt[level]}`;
-      sendEmailAll("Cyber Winter Sturm Alarm",message);
+
+      if(message) sendEmailAll("Cyber Winter Sturm Alarm",message);
     }
     lastLevel=level;
   }
