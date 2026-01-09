@@ -164,7 +164,6 @@ function updateUI(level,temp,snow){
   ampel.classList.add(level);
   ampel.innerText=txt[level];
 
-  // E-Mail nur senden, wenn sich die Ampelfarbe ändert
   if(level!==lastLevel){
     if(emails.length>0){
       let message="";
@@ -172,7 +171,7 @@ function updateUI(level,temp,snow){
       else if(level==="green" && !greenSent){
         message="Keine Gefahr in den nächsten 28 Stunden";
         greenSent=true;
-      } else if(level!=="green") greenSent=false; // Reset, sobald gelb/orange/rot kommt
+      } else if(level!=="green") greenSent=false;
       else message=`Status geändert: ${txt[level]}`;
 
       if(message) sendEmailAll("Cyber Winter Sturm Alarm",message);
@@ -185,13 +184,12 @@ function updateUI(level,temp,snow){
 const startBtn=document.getElementById("startBtn");
 startBtn.addEventListener("click",()=>{
   startBtn.style.display="none";
-
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
       const {latitude,longitude}=pos.coords;
       document.getElementById("status").innerHTML=`Standort erkannt: ${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;
       checkWeather(latitude,longitude);
-      setInterval(()=>checkWeather(latitude,longitude),300000); // alle 5 Minuten
+      setInterval(()=>checkWeather(latitude,longitude),300000);
     },()=>alert("Standort-Zugriff erforderlich"));
   } else alert("Browser unterstützt keinen Standortzugriff!");
 });
