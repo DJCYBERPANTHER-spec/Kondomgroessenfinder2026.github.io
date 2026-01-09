@@ -3,71 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <title>CYBER WINTER STURM ALARM SCHWEIZ</title>
-
 <style>
-body{
-  font-family:Arial, sans-serif;
-  background:#eef2f6;
-  padding:20px;
-}
-h1{text-align:center}
-
-button{
-  width:100%;
-  padding:16px;
-  font-size:1.1em;
-  border:none;
-  border-radius:12px;
-  background:#2980b9;
-  color:white;
-  cursor:pointer;
-}
-
-.status{
-  margin-top:20px;
-  padding:20px;
-  border-radius:14px;
-  text-align:center;
-  color:white;
-  font-size:1.2em;
-}
-
-.green{background:#2ecc71}
-.yellow{background:#f1c40f;color:black}
-.orange{background:#e67e22}
-.red{background:#e74c3c}
-
-#countdown{
-  margin-top:15px;
-  font-size:1.1em;
-  font-weight:bold;
-  text-align:center;
-}
+body{font-family:Arial,sans-serif;background:#eef2f6;padding:20px;}
+h1{text-align:center;}
+button{padding:14px;font-size:1.1em;border:none;border-radius:12px;cursor:pointer;}
+#startBtn{width:100%;background:#2980b9;color:white;margin-bottom:20px;}
+input{padding:8px;width:220px;}
+.status{margin-top:20px;padding:20px;border-radius:14px;text-align:center;color:white;font-size:1.2em;}
+.green{background:#2ecc71;}
+.yellow{background:#f1c40f;color:black;}
+.orange{background:#e67e22;}
+.red{background:#e74c3c;}
+.email-item{margin:6px 0;}
+#countdown{margin-top:15px;font-weight:bold;text-align:center;}
 </style>
 </head>
-
 <body>
 
 <h1>CYBER WINTER STURM ALARM SCHWEIZ</h1>
 
 <button id="startBtn">🔔 Alarm aktivieren</button>
 
-<div id="status" class="status green">
-Noch keine Daten
-</div>
+<h3>E-Mail Benachrichtigungen</h3>
+<input id="emailInput" placeholder="E-Mail eingeben">
+<button id="addEmailBtn">➕</button>
+<div id="emailList"></div>
 
+<div id="status" class="status green">Noch keine Daten</div>
 <div id="countdown"></div>
 
 <script>
-let activated=false;
-let lastLevel=null;
-let preAlarmSent=false;
-let dangerTime=null;
+/* ================== KONFIG ================== */
+const EMAIL_API="https://script.google.com/macros/s/AKfycbxETt5pEIsHFU19u2IL1ouZ_crteiaepipClCflXxjDhDUEvYH_-BaJFBAJQCntdZy_/exec";
 
+let activated=false,lastLevel=null,preAlarmSent=false,dangerTime=null;
+let emails=JSON.parse(localStorage.getItem("emails")||"[]");
+let safeEmailSent=false;
 const alarm=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 alarm.loop=true;
 
-/* ===== AMPEL LOGIK ===== */
+/* ================== EMAIL HANDLING ================== */
+function renderEmails(){
+  const list=document.getElementById("emailList");
+  list.innerHTML="";
+  emails.forEach((mail,i)=>{
+    const div=document.createElement("div");
+    div.className="email-item";
+    div.innerHTML=`${mail} <button>🗑️</button>`;
+    div.querySelector("button").addEventListener("click",()=>removeEmail(i));
+    list.appendChild(div);
+  });
+}
+function addEmail(){
+  const val=document.getElementById("emailInput").value.trim();
+  if(val && !emails.includes(val)){
+    emails.push(val);
+    localStorage.setItem("emails",JSON.stringify(emails));
+    document.getElementById("emailInput").value="";
+    renderEmails();
+  }
+}
+function removeEmail(i){
+  emails.splice(i,1);
+  localStorage.setItem("emails",JSON.stringify(emails));
+  renderEmails();
+}
+document.getElementById("addEmailBtn").addEventListener("click",addEmail);
+renderEmails();
+
+/* ================== AMPEL ================== */
 function getLevel(temp,snow){
   if(temp>=-5 && snow<2) return "green";
   if(temp<-5 && temp>=-10 || snow>=2) return "yellow";
@@ -75,108 +79,99 @@ function getLevel(temp,snow){
   return "red";
 }
 
-/* ===== COUNTDOWN ===== */
+/* ================== COUNTDOWN ================== */
 function startCountdown(target){
-  setInterval(()=>{
+  clearInterval(window.countdownInterval);
+  window.countdownInterval=setInterval(()=>{
     const diff=target-Date.now();
     if(diff<=0){
-      countdown.innerHTML="🚨 GEFAHR BEGINNT JETZT!";
+      document.getElementById("countdown").innerHTML="🚨 GEFAHR BEGINNT JETZT!";
+      clearInterval(window.countdownInterval);
       return;
     }
     const h=Math.floor(diff/3600000);
     const m=Math.floor(diff%3600000/60000);
     const s=Math.floor(diff%60000/1000);
-    countdown.innerHTML=`⏳ Zeit bis Gefahr: ${h}h ${m}m ${s}s`;
+    document.getElementById("countdown").innerHTML=`⏳ Zeit bis Gefahr: ${h}h ${m}m ${s}s`;
 
     if(diff<=7200000 && !preAlarmSent){
       preAlarmSent=true;
       alarm.play().catch(()=>{});
       navigator.vibrate?.([1000,500,1000,500,1000]);
-      new Notification("⚠️ Wintersturm-Warnung",{
-        body:"EXTREME GEFAHR in weniger als 2 Stunden!"
-      });
+      new Notification("⚠️ Wintersturm-Warnung",{body:"EXTREME GEFAHR in weniger als 2 Stunden!"});
+      sendEmailAll("⚠️ EXTREME GEFAHR in weniger als 2 Stunden!");
     }
   },1000);
 }
 
-/* ===== WETTER ===== */
+/* ================== EMAIL SENDEN ================== */
+function sendEmailAll(text){
+  emails.forEach(e=>{
+    fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&body=${encodeURIComponent(text)}`);
+  });
+}
+
+/* ================== WETTER CHECK ================== */
 async function checkWeather(lat,lon){
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,snowfall,time&timezone=Europe/Zurich`;
   const res=await fetch(url);
   const data=await res.json();
 
-  let minTemp=999;
-  let snowSum=0;
-  let danger=null;
-
+  let minTemp=999,snowSum=0,danger=null;
   for(let i=0;i<28;i++){
     const t=data.hourly.temperature_2m[i];
     const s=data.hourly.snowfall[i];
     minTemp=Math.min(minTemp,t);
     snowSum+=s;
-
-    if(!danger && getLevel(t,s)==="red"){
-      danger=new Date(data.hourly.time[i]).getTime();
-    }
+    if(!danger && getLevel(t,s)==="red") danger=new Date(data.hourly.time[i]).getTime();
   }
 
   const level=getLevel(minTemp,snowSum);
   updateUI(level,minTemp,snowSum);
 
-  if(danger){
-    dangerTime=danger;
-    startCountdown(danger);
-  }else{
-    countdown.innerHTML="✅ Keine Gefahr in den nächsten 28 Stunden";
+  if(danger) startCountdown(danger);
+  else{
+    document.getElementById("countdown").innerHTML="✅ Keine Gefahr in den nächsten 28 Stunden";
     alarm.pause();
+    if(!safeEmailSent && emails.length>0){
+      safeEmailSent=true;
+      sendEmailAll("✅ Keine Gefahr in den nächsten 28 Stunden");
+    }
   }
 }
 
-/* ===== UI ===== */
+/* ================== UI UPDATE ================== */
 function updateUI(level,temp,snow){
+  const status=document.getElementById("status");
   status.className="status "+level;
-
-  const text={
-    green:"🟢 Keine Gefahr",
-    yellow:"🟡 Erhöhte Gefahr",
-    orange:"🟠 Mittlere Gefahr",
-    red:"🔴 EXTREME GEFAHR – NICHT RAUSGEHEN"
-  };
-
-  status.innerHTML=`
-    ${text[level]}<br>
-    Tiefsttemperatur: ${temp.toFixed(1)}°C<br>
-    Schnee: ${snow.toFixed(1)} cm
-  `;
+  const txt={green:"🟢 Keine Gefahr",yellow:"🟡 Erhöhte Gefahr",orange:"🟠 Mittlere Gefahr",red:"🔴 EXTREME GEFAHR – NICHT RAUSGEHEN"};
+  status.innerHTML=`${txt[level]}<br>Tiefsttemperatur: ${temp.toFixed(1)}°C<br>Schnee: ${snow.toFixed(1)} cm`;
 
   if(level!==lastLevel){
     lastLevel=level;
-    new Notification("Winterstatus Schweiz",{body:text[level]});
+    safeEmailSent=false; // reset safe email wenn Status ändert
+    if(Notification.permission==="granted") new Notification("Winterstatus Schweiz",{body:txt[level]});
+    if(level==="red"){
+      alarm.play().catch(()=>{});
+      navigator.vibrate?.([800,300,800,300,800]);
+      sendEmailAll("🚨 EXTREME WINTERGEFAHR – Bitte zuhause bleiben!");
+    } else alarm.pause();
   }
 }
 
-/* ===== START ===== */
-startBtn.onclick=async()=>{
+/* ================== START BUTTON ================== */
+document.getElementById("startBtn").addEventListener("click",async()=>{
   if(activated) return;
   activated=true;
-  startBtn.style.display="none";
-
+  document.getElementById("startBtn").style.display="none";
   await Notification.requestPermission();
-
   navigator.geolocation.getCurrentPosition(pos=>{
     const {latitude,longitude}=pos.coords;
     checkWeather(latitude,longitude);
     setInterval(()=>checkWeather(latitude,longitude),300000);
-  },()=>{
-    alert("Standort-Zugriff erforderlich");
-  });
-};
+  },()=>alert("Standort-Zugriff erforderlich"));
+});
 </script>
 
 </body>
 </html>
-
-
-</body>
-</html>
-
