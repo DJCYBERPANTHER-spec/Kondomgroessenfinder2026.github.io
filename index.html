@@ -11,7 +11,7 @@ h1{text-align:center;margin-bottom:5px;}
 .yellow{background:#f1c40f;color:black;}
 .orange{background:#e67e22;}
 .red{background:#e74c3c;}
-button{padding:14px;font-size:1.1em;border:none;border-radius:12px;cursor:pointer;margin:5px;}
+button{padding:12px;font-size:1.1em;border:none;border-radius:12px;cursor:pointer;margin:5px;}
 input{padding:8px;width:220px;}
 .email-item{margin:6px 0;}
 #countdown{margin-top:15px;font-weight:bold;}
@@ -46,11 +46,16 @@ function renderEmails(){
   emails.forEach((mail,i)=>{
     const div=document.createElement("div");
     div.className="email-item";
-    div.innerHTML=`${mail} <button>🗑️</button>`;
-    div.querySelector("button").addEventListener("click",()=>removeEmail(i));
+    div.textContent = mail + " ";
+    const btn=document.createElement("button");
+    btn.textContent="🗑️";
+    btn.addEventListener("click",()=>removeEmail(i));
+    btn.addEventListener("touchstart",()=>removeEmail(i));
+    div.appendChild(btn);
     list.appendChild(div);
   });
 }
+
 function addEmail(){
   const val=document.getElementById("emailInput").value.trim();
   if(val && !emails.includes(val)){
@@ -60,12 +65,15 @@ function addEmail(){
     renderEmails();
   }
 }
+
 function removeEmail(i){
   emails.splice(i,1);
   localStorage.setItem("emails",JSON.stringify(emails));
   renderEmails();
 }
+
 document.getElementById("addEmailBtn").addEventListener("click",addEmail);
+document.getElementById("addEmailBtn").addEventListener("touchstart",addEmail);
 renderEmails();
 
 // ================== AMPEL ==================
@@ -151,7 +159,7 @@ function updateUI(level,temp,snow){
   const txt={green:"🟢 Keine Gefahr",yellow:"🟡 Erhöhte Gefahr",orange:"🟠 Mittlere Gefahr",red:"🔴 EXTREME GEFAHR – NICHT RAUSGEHEN"};
   
   status.innerHTML=`Tiefsttemperatur: ${temp.toFixed(1)}°C<br>Schnee: ${snow.toFixed(1)} cm`;
-  ampel.className=""; 
+  ampel.className="";
   ampel.classList.add(level);
   ampel.innerText=`${txt[level]}`;
 
@@ -201,7 +209,7 @@ function startApp() {
 
 startBtn.addEventListener("click", startApp);
 startBtn.addEventListener("touchstart", startApp);
-</script>
 
+</script>
 </body>
 </html>
