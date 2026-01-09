@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>WINTER ALARM</title>
+<style>
+  body { font-family: Arial, sans-serif; background-color: #f0f4f8; color: #333; padding: 20px; }
+  .alarm { background-color: #ff4d4d; color: white; padding: 20px; margin: 20px 0; border-radius: 10px; font-size: 1.2em; }
+  .safe { background-color: #4caf50; color: white; padding: 20px; margin: 20px 0; border-radius: 10px; font-size: 1.2em; }
+  .countdown { font-weight: bold; }
+  .countdown.green { color: green; }
+  .countdown.yellow { color: orange; }
+  .countdown.red { color: red; }
+  button { padding: 10px 20px; font-size: 1em; margin-top: 10px; margin-right:5px; }
+  input { padding: 5px; margin-top: 5px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<h1>WINTER ALARM</h1>
+
+<p>Trage hier deine E-Mail-Adresse(n) ein (mit Komma trennen):</p>
+<input type="text" id="emailInput" placeholder="email1@gmail.com,email2@bluewin.ch,email3@outlook.de">
+<button id="saveEmails">E-Mail-Adressen speichern</button>
+<button id="deleteEmails">E-Mail-Adressen löschen</button>
+<p id="emailStatus">Keine E-Mail-Adressen gespeichert.</p>
+
+<p id="status">Bitte tippe auf „Start Alarm“, damit Audio, Notifications und E-Mails aktiviert werden.</p>
+<button id="startBtn">Start Alarm</button>
+<button id="testBtn">Test-Alarm auslösen</button>
+<button id="deleteTestBtn" style="display:none;">Test löschen</button>
+
+<script>
+// === Konfiguration ===
+const serviceID = "service_hgts809";
+const latitude = 47.187;
+const longitude = 7.964;
+const alertThresholdTemp = -10;
+const alertThresholdSnow = 5;
+
+const emailList = [];
+const alarmText = "⚠️ WINTER ALARM: Sturm/Schnee aktuell! Bitte Vorsicht und warme Kleidung.";
+const preAlarmText = "⚠️ WINTER ALARM Voralarm: In 2 Stunden beginnt Sturm/Schnee. Bereite dich vor!";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxETt5pEIsHFU19u2IL1ouZ_crteiaepipClCflXxjDhDUEvYH_-BaJFBAJQCntdZy_/exec";
+
+const alarmSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+const loudAlarm = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+loudAlarm.volume = 1.0;
+
+let currentAlerts = [];
+let loudAlertSent = {};
+let notificationsAllowed = false;
+let audioAllowed = false;
+let testActive = false;
+let greenEmailSentToday = false;
+let lastStatus = "unknown";
+
+const blockedDomains = ["tempmail.com","10minutemail.com","mailinator.com","guerrillamail.com","yopmail.com","fakeinbox.com"];
+
+// === Hilfsfunktionen ===
+function formatCountdown(ms){
+  if(ms<0) ms=0;
+  const h=Math.floor(ms/(1000*60*60));
+  const m=Math.floor((ms%(1000*60*60))/(1000*60));
+  const s=Math.floor((ms%60000)/1000);
+  return {text:`⏳ ${h}h ${m}m ${s}s`, totalMs: ms};
+}
+
+function isValidEmail(email){
+  const regex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if(!regex.test(email)) return false;
+  const domain=email.split("@")[1].toLowerCase();
+  if(blockedDomains.includes(domain)) return false;
+  return true;
+}
+
+// === E-Mail Verwaltung ===
+document.getElementById('saveEmails').addEventListener('click', ()=>{
+  const input=document.getElementById('emailInput').value;
+  emailList.length=0;
+  const invalid=[];
+  input.split(',').forEach(e=>{
+    const trimmed=e.trim();
+    if(!trimmed) return;
+    if(isValidEmail(trimmed)) emailList.push(trimmed);
+    else invalid.push(trimmed);
+  });
+  if(invalid.length>0) alert("❌ Ungültige oder Fake‑E-Mail(s):\n"+invalid.join("\n"));
+  document.getElementById('emailStatus').textContent=emailList.length>0?"Gespeicherte E-Mail-Adressen: "+emailList.join(", "):"Keine gültigen E-Mail-Adressen gespeichert.";
+});
+
+document.getElementById('deleteEmails').addEventListener('click', ()=>{
+  emailList.length=0;
+  document.getElementById('emailInput').value="";
+  document.getElementById('emailStatus').textContent="Keine E-Mail-Adressen gespeichert.";
+  alert("Alle E-Mail-Adressen wurden gelöscht!");
+});
+
+// === Start Button ===
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  if("Notification" in window){
+    const permission=await Notification.requestPermission();
+    notificationsAllowed=(permission==="granted");
+  }
+  try{await alarmSound.play(); await alarmSound.pause(); await loudAlarm.play(); await loudAlarm.pause(); audioAllowed=true;}catch(e){console.log(e);}
+  document.getElementById('status').innerHTML="✅ WINTER ALARM aktiviert: Audio, Notifications & E-Mails!";
+  document.getElementById('startBtn').style.display='none';
+  checkWinterAlarm();
+  setInterval(updateCountdowns,1000);
+  setInterval(checkWinterAlarm,300000); // alle 5 Minuten
+  resetGreenEmailDaily(); // Mitternacht zurücksetzen
+});
+
+// === Wettercheck ===
+async function checkWinterAlarm(){
+  try{
+    const response=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,snowfall&timezone=Europe/Zurich`);
+    const data=await response.json();
+    const temps=data.hourly.temperature_2m;
+    const snow=data.hourly.snowfall;
+    const times=data.hourly.time;
+    let alertPeriods=[], currentPeriod=null;
+    for(let i=0;i<times.length;i++){
+      if(temps[i]<=alertThresholdTemp || snow[i]>=alertThresholdSnow){
+        if(!currentPeriod) currentPeriod={id:serviceID, start:new Date(times[i]), end:new Date(times[i])};
+        else currentPeriod.end=new Date(times[i]);
+      } else {
+        if(currentPeriod){alertPeriods.push(currentPeriod); currentPeriod=null;}
+      }
+    }
+    if(currentPeriod) alertPeriods.push(currentPeriod);
+    currentAlerts=alertPeriods.filter(a=>a.id===serviceID);
+    updateAlarmDisplay();
+    if(!testActive) triggerAlarm();
+  }catch(e){document.getElementById('status').innerHTML=`<div class="alarm">Fehler beim Laden der Wetterdaten</div>`; console.error(e);}
+}
+
+// === Alarmanzeige & Statusänderung ===
+function updateAlarmDisplay(){
+  let alarmMessage="";
+  const now = new Date();
+  let currentStatus = currentAlerts.length > 0 ? "alarm" : "safe";
+
+  if(currentAlerts.length>0){
+    alarmMessage=`<div class="alarm">⚠️ WINTER ALARM in Ettiswil!</div>`;
+    currentAlerts.forEach((p,idx)=>{
+      alarmMessage+=`<div class="alarm" id="alert-${idx}">📍 Zeitraum ${idx+1}: ${p.start.toLocaleString("de-CH")} bis ${p.end.toLocaleString("de-CH")} <span class="countdown" id="countdown-${idx}"></span></div>`;
+    });
+    greenEmailSentToday = false; // Reset grüne Erinnerung bei Alarm
+  } else {
+    alarmMessage=`<div class="safe">✅ Kein Sturm/Schnee in den nächsten 48 Stunden</div>`;
+    if(lastStatus !== "safe" && emailList.length>0 && !greenEmailSentToday){
+      sendGreenEmail();
+      greenEmailSentToday = true;
+    }
+  }
+
+  lastStatus = currentStatus;
+  document.getElementById('status').innerHTML=alarmMessage;
+}
+
+// === Alarm auslösen ===
+function triggerAlarm(){
+  if(!audioAllowed && !notificationsAllowed) return;
+  const now=new Date();
+  currentAlerts.forEach((alert,idx)=>{
+    if(alert.id!==serviceID) return;
+    const twoHoursMs=2*60*60*1000;
+    if((alert.start-now)<=twoHoursMs && !loudAlertSent[idx]){
+      loudAlertSent[idx]=true;
+      sendEmail("prealarm");
+      if(notificationsAllowed) new Notification("WINTER ALARM - Voralarm",{body:preAlarmText});
+      if(audioAllowed){ loudAlarm.currentTime=0; loudAlarm.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]); }
+    }
+    if(alert.start<=now && alert.end>=now){
+      sendEmail("alarm");
+      if(notificationsAllowed) new Notification("WINTER ALARM",{body:alarmText});
+      if(audioAllowed){ loudAlarm.currentTime=0; loudAlarm.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([500,200,500,200,500]); }
+    }
+  });
+}
+
+// === E-Mail versenden ===
+function sendEmail(type){
+  emailList.forEach(to=>{
+    const url=`${scriptURL}?to=${encodeURIComponent(to)}&type=${type}`;
+    fetch(url).then(resp=>resp.text()).then(txt=>console.log(txt)).catch(e=>console.error("Email konnte nicht gesendet werden:", e));
+  });
+}
+
+// === Grüne Erinnerung E-Mail ===
+function sendGreenEmail(){
+  emailList.forEach(to=>{
+    const url=`${scriptURL}?to=${encodeURIComponent(to)}&type=green`;
+    fetch(url).then(resp=>resp.text()).then(txt=>console.log("Green Email:", txt)).catch(e=>console.error("Green Email konnte nicht gesendet werden:", e));
+  });
+}
+
+// === Countdown aktualisieren ===
+function updateCountdowns(){
+  const now=new Date();
+  currentAlerts.forEach((alert,idx)=>{
+    const countdownEl=document.getElementById(`countdown-${idx}`);
+    if(countdownEl){
+      const cd=formatCountdown(alert.end-now);
+      countdownEl.textContent=cd.text;
+      if(cd.totalMs<=60000) countdownEl.className='countdown red';
+      else if(cd.totalMs<=120000) countdownEl.className='countdown yellow';
+      else countdownEl.className='countdown green';
+    }
+  });
+}
+
+// === Test-Alarm ===
+document.getElementById('testBtn').addEventListener('click', ()=>{
+  testActive=true;
+  const now=new Date();
+  const fakeAlert={id:serviceID, start:now, end:new Date(now.getTime()+60000)};
+  currentAlerts.push(fakeAlert);
+  updateAlarmDisplay();
+  triggerAlarm();
+  document.getElementById('deleteTestBtn').style.display='inline';
+});
+
+document.getElementById('deleteTestBtn').addEventListener('click', ()=>{
+  currentAlerts=currentAlerts.filter(a=>a.start.getTime()!==a.end.getTime()-60000);
+  testActive=false;
+  updateAlarmDisplay();
+  document.getElementById('deleteTestBtn').style.display='none';
+});
+
+// === Mitternacht Reset für grüne E-Mail ===
+function resetGreenEmailDaily(){
+  const now = new Date();
+  const millisTillMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1,0,0,0) - now;
+  setTimeout(function(){
+    greenEmailSentToday = false;
+    resetGreenEmailDaily(); // rekursiv für den nächsten Tag
+  }, millisTillMidnight);
+}
+</script>
+</body>
+</html>
