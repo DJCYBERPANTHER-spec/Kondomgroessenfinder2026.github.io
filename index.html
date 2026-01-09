@@ -138,10 +138,9 @@ document.getElementById("testEmailBtn").addEventListener("click", ()=>{
   emails.forEach(e=>{
     fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&subject=${encodeURIComponent("Cyber Winter Sturm Alarm Test")}&body=${encodeURIComponent("Dies ist eine Test-E-Mail vom Cyber Winter Sturm Alarm. Status: Keine Gefahr")}`)
     .then(res=>res.text())
-    .then(()=>console.log(`Test-Mail an ${e} gesendet`))
-    .catch(console.error);
+    .then(()=>alert(`Test-Mail an ${e} gesendet!`))
+    .catch(()=>alert(`Fehler beim Senden an ${e}`));
   });
-  alert("Test-E-Mail sollte gesendet worden sein!");
 });
 
 // ================== AMPEL ==================
@@ -174,7 +173,7 @@ function sendEmailAll(subject,text){
   emails.forEach(e=>{
     fetch(`${EMAIL_API}?to=${encodeURIComponent(e)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`)
     .then(res=>res.text())
-    .then(console.log)
+    .then(()=>console.log(`Mail an ${e} gesendet`))
     .catch(console.error);
   });
 }
