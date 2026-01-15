@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Kondomgröße – automatisch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
+    padding: 20px;
+}
+.box {
+    max-width: 380px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+input, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    font-size: 16px;
+}
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+}
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 8px;
+}
+.green { background:#e6ffe6; }
+.yellow { background:#fff8e1; }
+.red { background:#ffe6e6; }
+.small {
+    font-size: 13px;
+    color: #555;
+    margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+<div class="box">
+    <h2>Kondomgrößen-Rechner</h2>
+
+    <p>Penis-Durchmesser (cm):</p>
+    <input type="number" id="durchmesser" step="0.1" placeholder="z. B. 3.6">
+
+    <button onclick="berechnen()">Automatisch berechnen</button>
+
+    <div id="ergebnis" style="display:none;"></div>
+
+    <p class="small">Die Länge wird nicht benötigt.</p>
+</div>
+
+<script>
+const marktGroessen = [47, 49, 52, 54, 56, 57, 60, 64, 69];
+
+function berechnen() {
+    const d = parseFloat(document.getElementById("durchmesser").value);
+    if (isNaN(d) || d <= 0) {
+        alert("Bitte einen gültigen Durchmesser eingeben.");
+        return;
+    }
+
+    // Berechnung
+    const umfang = d * Math.PI;
+    const ideal = umfang / 2;
+
+    // Nächste Marktgröße
+    const beste = marktGroessen.reduce((a,b) =>
+        Math.abs(b - ideal) < Math.abs(a - ideal) ? b : a
+    );
+
+    // Bewertung
+    let klasse = "green";
+    let text = "✅ Passt sehr gut";
+    const diff = Math.abs(beste - ideal);
+
+    if (diff > 2 && diff <= 4) {
+        klasse = "yellow";
+        text = "⚠️ Könnte etwas eng oder locker sein";
+    }
+    if (diff > 4) {
+        klasse = "red";
+        text = "❌ Wahrscheinlich unpassend";
+    }
+
+    // Speichern
+    localStorage.setItem("kondomgroesse", beste);
+
+    const out = document.getElementById("ergebnis");
+    out.style.display = "block";
+    out.className = "result " + klasse;
+    out.innerHTML = `
+        <strong>Empfohlene Kondomgröße:</strong><br>
+        ${beste} mm Nominalbreite<br><br>
+        ${text}<br><br>
+        <strong>Beispiele:</strong><br>
+        MySize ${beste} mm<br>
+        Durex ~${beste} mm<br>
+        Ritex ~${beste} mm
+    `;
+}
+
+// Beim Laden gespeicherte Größe anzeigen
+window.onload = () => {
+    const g = localStorage.getItem("kondomgroesse");
+    if (g) {
+        const out = document.getElementById("ergebnis");
+        out.style.display = "block";
+        out.className = "result green";
+        out.innerHTML = `
+            📦 Gespeicherte Größe:<br>
+            <strong>${g} mm Nominalbreite</strong><br>
+            ✅ Zuletzt berechnet
+        `;
+    }
+};
+</script>
+</body>
+</html>
+
